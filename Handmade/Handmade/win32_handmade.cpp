@@ -19,6 +19,9 @@
 */
 
 
+#include "handmade.h"
+#include "handmade.cpp"
+
 //Casey style c++, mostly C
 #include <windows.h>
 #include <stdint.h>
@@ -31,9 +34,6 @@
 
 //translates left value into right value
 
-
-#include "handmade.h"
-#include "handmade.cpp"
 
 struct win32_offscreen_buffer
 {
