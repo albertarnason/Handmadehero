@@ -1,0 +1,10 @@
+build/*
+!build/.gitkeep
+Handmadeheroproject/
+oldcpp files/
+.Handmade.sln
+Handmade/build/*
+Handmade/Handmade/build/*
+Handmade/Handmade/x64/Debug/*
+Handmade/Handmade/x64/*
+Handmade/.vs/

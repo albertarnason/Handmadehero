@@ -1,0 +1,31 @@
+setup stuff ep1:
+
+ //call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
+
+run C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build> .\vcvarsall x64
+eventuelt find startup.bat i windows og tilføj den der med "call" foran
+
+Hvis jeg vil lave det der path halløjsa:
+subst w: C:\Users\walla\src\Handmadehero\Handmade
+
+(kræver subst startup, kører hvad end der er i \misc, hører til i misc folder)
+set path=w:\misc;%path%
+
+kør .\shell.bat i \misc folder
+
+cl win32_handmade.cpp
+cl /Zi win32_handmade.cpp
+
+STARTUP:
+
+
+kør i powershell:
+cmd /k "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat" && powershell"
+
+efterfølgende kør for at build:
+
+.\build.bat
+
+Åben dummy projekt i visual studio:
+
+devenv ..\build\win32_handmade.exe
