@@ -1,5 +1,8 @@
 #if !defined(HANDMADE_H)
 #include <stdint.h>
+
+// implement sine ourselves
+#include <math.h>
 #define internal static
 #define internal static
 #define local_persist static
@@ -32,7 +35,13 @@ struct game_offscreen_buffer
     int Height;
     int Pitch;
 };
-internal void GameUpdateAndRender(game_offscreen_buffer *Buffer, int XOffset, int YOffset);
+
+struct game_sound_output_buffer{
+    int SamplesPerSecond;
+    int SampleCount;
+    int16 *Samples;
+};
+internal void GameUpdateAndRender(game_offscreen_buffer *Buffer, int XOffset, int YOffset, game_sound_output_buffer *SoundBuffer);
 
 //services that the platform layer provides to the game below
 
