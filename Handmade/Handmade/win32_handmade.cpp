@@ -26,6 +26,7 @@
 #include <windows.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <malloc.h>
 #include <Xinput.h>
 #include <dsound.h>
 
@@ -584,12 +585,13 @@ int CALLBACK WinMain(
 			Win32InitDSound(Window, SoundOutput.SamplesPerSecond , SoundOutput.SecondaryBufferSize);
 			Win32ClearBuffer(&SoundOutput);
 			GlobalSecondaryBuffer->Play(0,0, DSBPLAY_LOOPING);
+			int16 *Samples =(int16 *)VirtualAlloc(0, SoundOutput.SecondaryBufferSize, MEM_COMMIT, PAGE_READWRITE);
 
 			LARGE_INTEGER LastCounter;
 			QueryPerformanceCounter(&LastCounter);
-			
 			uint64 LastCycleCount = __rdtsc();
 
+			//pool with bitmap virtualalloc
 			GlobalRunning = true;
 			while(GlobalRunning)
 			{
@@ -664,6 +666,7 @@ int CALLBACK WinMain(
 				DWORD PlayCursor;
 				DWORD WriteCursor;
 				bool32 SoundIsValid = false;
+				//todo tighten up sound logic so that twe know where we should be writing to and can anticipate the time spent in the game update
 				if(SUCCEEDED(GlobalSecondaryBuffer->GetCurrentPosition(&PlayCursor, &WriteCursor)))
 				{ ByteToLock = (SoundOutput.RunningSampleIndex*SoundOutput.BytesPerSample) % SoundOutput.SecondaryBufferSize;
 					TargetCursor = ((PlayCursor + SoundOutput.LatencySampleCount*SoundOutput.BytesPerSample) % SoundOutput.SecondaryBufferSize);
@@ -682,10 +685,9 @@ int CALLBACK WinMain(
 					SoundIsValid = true;
 				}
 
-				int16 Samples[48000*2];
 				game_sound_output_buffer SoundBuffer = {};
 				SoundBuffer.SamplesPerSecond = SoundOutput.SamplesPerSecond;
-				SoundBuffer.SampleCount = BytesToWrite/ SoundOutput.BytesPerSample;
+				SoundBuffer.SampleCount = BytesToWrite / SoundOutput.BytesPerSample;
 				SoundBuffer.Samples = Samples;
 
 				game_offscreen_buffer Buffer = {};
@@ -750,8 +752,6 @@ int CALLBACK WinMain(
   {
 	//todo logging
   };
-
-
   return(0);
 }
 
@@ -761,3 +761,6 @@ int CALLBACK WinMain(
 //Albert notes dump
 //page up page down for quickly jumping up and down
 //alt+arrowkeys to move a line up and down
+//ctrl(rightside)+1,2 to jump between windows
+//alt+z for lines automatically wrapping to next line, very handy to just write super long lines and then let alt+z wrapping cruth when double window
+//ctrl+space for terminal swap
