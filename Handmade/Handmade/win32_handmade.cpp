@@ -18,8 +18,10 @@
 	partial list of stuff
 */
 
+//Todo Swap, Min, Max macros
 
 #include "handmade.h"
+
 #include "handmade.cpp"
 
 //Casey style c++, mostly C
@@ -29,7 +31,6 @@
 #include <malloc.h>
 #include <Xinput.h>
 #include <dsound.h>
-
 
 //translates left value into right value
 
@@ -44,6 +45,22 @@ int Pitch;
 int BytesPerPixel;
 };
 
+struct win32_window_dimension 
+{
+	int Width;
+	int Height;
+};
+
+struct win32_sound_output
+{
+			int SamplesPerSecond;
+			uint32 RunningSampleIndex;
+			int BytesPerSample;
+			int SecondaryBufferSize;
+			int LatencySampleCount;
+};
+
+
 global_variable bool GlobalRunning;
 global_variable win32_offscreen_buffer GlobalBackBuffer;
 global_variable LPDIRECTSOUNDBUFFER GlobalSecondaryBuffer;
@@ -52,12 +69,6 @@ global_variable LPDIRECTSOUNDBUFFER GlobalSecondaryBuffer;
 
 //Cant return 2 values with a C function, so u bundle them into structs
 //Dont want to bundle types if possible, only when the values HAVE to go together
-struct win32_window_dimension 
-{
-	int Width;
-	int Height;
-};
-
 
 
 //Calling windows function directly something something, getting around cases where users dont have gamepad specific software installed/available
@@ -414,17 +425,6 @@ LRESULT CALLBACK Win32MainWindowCallback(
 	return(Result);
 }
 
-struct win32_sound_output
-{
-			int SamplesPerSecond;
-			int ToneHz;	
-			int16 ToneVolume;
-			uint32 RunningSampleIndex;
-			int WavePeriod;
-			int BytesPerSample;
-			int SecondaryBufferSize;
-			int LatencySampleCount;
-};
 
 
 internal void Win32ClearBuffer(win32_sound_output *SoundOutput){
@@ -518,6 +518,11 @@ internal void Win32FillSoundBuffer(win32_sound_output *SoundOutput, DWORD ByteTo
 //
 //
 
+internal void Win32ProcessXInputDigitalButton(DWORD XInputButtonState, game_button_state *OldState, game_button_state *NewState, DWORD ButtonBit){
+	NewState->EndedDown = ((XInputButtonState & ButtonBit) == ButtonBit);
+	NewState->HalfTransitionCount = (OldState->EndedDown != NewState->EndedDown) ? 1 : 0;
+
+}
 
 
 int CALLBACK WinMain(
@@ -575,9 +580,6 @@ int CALLBACK WinMain(
 
 			//Make this like 60 seconds (so playcursor cant wrap on us)
 			SoundOutput.SamplesPerSecond = 48000;
-			SoundOutput.ToneHz = 256;	
-			SoundOutput.ToneVolume = 3000;
-			SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond/SoundOutput.ToneHz;
 			SoundOutput.BytesPerSample = sizeof(int16)*2;
 			SoundOutput.SecondaryBufferSize = SoundOutput.SamplesPerSecond*SoundOutput.BytesPerSample;
 			SoundOutput.LatencySampleCount = SoundOutput.SamplesPerSecond / 15;
@@ -586,6 +588,10 @@ int CALLBACK WinMain(
 			Win32ClearBuffer(&SoundOutput);
 			GlobalSecondaryBuffer->Play(0,0, DSBPLAY_LOOPING);
 			int16 *Samples =(int16 *)VirtualAlloc(0, SoundOutput.SecondaryBufferSize, MEM_COMMIT, PAGE_READWRITE);
+
+			game_input Input [2] = {};
+			game_input *NewInput = &Input[0];
+			game_input *OldInput = &Input[1];
 
 			LARGE_INTEGER LastCounter;
 			QueryPerformanceCounter(&LastCounter);
@@ -597,7 +603,7 @@ int CALLBACK WinMain(
 			{
 				//Large integer is a windows union struct consisting of lowpart highpart, u.lowpart u.highpart, and quadpart, 32bit 32bit u32bit u32bit and 64bit integer values
 				//struct(lowpart,highpart) is an anonymous struct/member can access by BeginCounter.u.LowPart
-
+				
 				MSG Message;
 				//has to process the message queue from windows
 				while(PeekMessage(&Message, 0, 0, 0, PM_REMOVE))
@@ -616,11 +622,19 @@ int CALLBACK WinMain(
 				//Interrupt based schemed: Device sends YOU(thecode) when state changes, cpu interrupts, legacy
 				//networked based
 				//should we poll this more frequency
+				int MaxControllerCount = XUSER_MAX_COUNT;
+				if(MaxControllerCount > ArrayCount(NewInput->Controllers)){MaxControllerCount = ArrayCount(NewInput->Controllers);}
 				for(DWORD ControllerIndex = 0;ControllerIndex <XUSER_MAX_COUNT; ++ControllerIndex)
 				{
+					game_controller_input *OldController = &OldInput->Controllers[ControllerIndex];
+					game_controller_input *NewController = &NewInput->Controllers[ControllerIndex];
 					XINPUT_STATE ControllerState;
 					if(XInputGetState(ControllerIndex,&ControllerState) == ERROR_SUCCESS)
 					{
+						//Todo we will handle deadzone later
+						//XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE
+						//XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE
+
 						//CONTROLLER IS PLUGGED IN
 						// See if ControllerState.dwPacketNumber increments too rapidly
 						XINPUT_GAMEPAD *Pad = &ControllerState.Gamepad;
@@ -629,25 +643,31 @@ int CALLBACK WinMain(
 						bool Down = (Pad ->wButtons & XINPUT_GAMEPAD_DPAD_DOWN);
 						bool Left = (Pad ->wButtons & XINPUT_GAMEPAD_DPAD_LEFT);
 						bool Right = (Pad ->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT);
-						bool Start = (Pad ->wButtons & XINPUT_GAMEPAD_START);
-						bool Back = (Pad ->wButtons & XINPUT_GAMEPAD_BACK);
-						bool LeftShoulder = (Pad ->wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER);
-						bool RightShoulder = (Pad ->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER);
-						bool AButton = (Pad ->wButtons & XINPUT_GAMEPAD_A);
-						bool BButton = (Pad ->wButtons & XINPUT_GAMEPAD_B);
-						bool XButton = (Pad ->wButtons & XINPUT_GAMEPAD_X);
-						bool YButton = (Pad ->wButtons & XINPUT_GAMEPAD_Y);
+						
+						real32 X; if (Pad->sThumbLX < 0){X = (real32)Pad->sThumbLX / -32768.0f;} else {X = (real32)Pad->sThumbLX / 32767.0f;}
+						real32 Y; if (Pad->sThumbLY < 0){Y = (real32)Pad->sThumbLY / -32768.0f;} else {Y = (real32)Pad->sThumbLY / 32767.0f;}
+						//todo min/max macros
+						NewController->MinX = OldController->MaxX = NewController->EndX = X;
+						NewController->MinY = OldController->MaxY = NewController->EndY = Y;
+						
 
-						int16 StickX = Pad->sThumbLX;
-						int16 StickY = Pad->sThumbLY;
+						NewController->StartX = OldController->EndX;
+						NewController->StartY = OldController->EndY;
+						
+						Win32ProcessXInputDigitalButton(Pad ->wButtons, &OldController->Down, &NewController->Down, XINPUT_GAMEPAD_A);
+						Win32ProcessXInputDigitalButton(Pad ->wButtons, &OldController->Right, &NewController->Right, XINPUT_GAMEPAD_B);
+						Win32ProcessXInputDigitalButton(Pad ->wButtons, &OldController->Left, &NewController->Left, XINPUT_GAMEPAD_X);
+						Win32ProcessXInputDigitalButton(Pad ->wButtons, &OldController->Up, &NewController->Up, XINPUT_GAMEPAD_Y);
+						//Win32ProcessXInputDigitalButton(Pad ->wButtons, &OldController->State, &NewController->State, XINPUT_GAMEPAD_START);
+						//Win32ProcessXInputDigitalButton(Pad ->wButtons, &OldController->State, &NewController->State, XINPUT_GAMEPAD_BACK);
+						Win32ProcessXInputDigitalButton(Pad ->wButtons, &OldController->LeftShoulder, &NewController->LeftShoulder, XINPUT_GAMEPAD_LEFT_SHOULDER);
+						Win32ProcessXInputDigitalButton(Pad ->wButtons, &OldController->RightShoulder, &NewController->RightShoulder, XINPUT_GAMEPAD_RIGHT_SHOULDER);
+
+
+
 
 						//if(AButton){Add xboxcontroller conditional input here}
 
-						XOffset += StickX / 4096;
-						YOffset += StickY / 4096;
-
-						SoundOutput.ToneHz = 512 + (int)(256.0f*((real32)StickY / 30000.0f));
-						SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond/SoundOutput.ToneHz;
 
 					}
 					else
@@ -660,11 +680,11 @@ int CALLBACK WinMain(
 				//Vibration.wLeftMotorSpeed = 60000;
 				//Vibration.wRightMotorSpeed = 60000;
 				//XInputSetState(0, &Vibration);
-				DWORD ByteToLock;
-				DWORD BytesToWrite;
-				DWORD TargetCursor;
-				DWORD PlayCursor;
-				DWORD WriteCursor;
+				DWORD ByteToLock = 0;
+				DWORD BytesToWrite = 0;
+				DWORD TargetCursor = 0;
+				DWORD PlayCursor = 0;
+				DWORD WriteCursor = 0;
 				bool32 SoundIsValid = false;
 				//todo tighten up sound logic so that twe know where we should be writing to and can anticipate the time spent in the game update
 				if(SUCCEEDED(GlobalSecondaryBuffer->GetCurrentPosition(&PlayCursor, &WriteCursor)))
@@ -695,7 +715,7 @@ int CALLBACK WinMain(
 				Buffer.Width = GlobalBackBuffer.Width;
 				Buffer.Height = GlobalBackBuffer.Height;
 				Buffer.Pitch = GlobalBackBuffer.Pitch;
-				GameUpdateAndRender(&Buffer, XOffset, YOffset, &SoundBuffer, SoundOutput.ToneHz);
+				GameUpdateAndRender(NewInput, &Buffer, &SoundBuffer);
 				
 				//Buggy
 				//DirectSound output test
@@ -741,6 +761,11 @@ int CALLBACK WinMain(
 
 				LastCounter = EndCounter;
 				LastCycleCount = EndCycleCount;
+
+				game_input *Temp = NewInput;
+				NewInput = OldInput;
+				OldInput = Temp;
+				//todo should i clear these
 			}
 		}
 		else
@@ -764,3 +789,6 @@ int CALLBACK WinMain(
 //ctrl(rightside)+1,2 to jump between windows
 //alt+z for lines automatically wrapping to next line, very handy to just write super long lines and then let alt+z wrapping cruth when double window
 //ctrl+space for terminal swap
+//Caseys header style is completely butchered for me at episode 13, might be include order
+//might be intellisense stuff, might be casey build stuff, might be just dumb
+//tldr every header related change atm seems more tedious and annoying than just having it declared toplayer, despite good reasons probably existing for using headers
