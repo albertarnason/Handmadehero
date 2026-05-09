@@ -587,7 +587,13 @@ int CALLBACK WinMain(
 			Win32InitDSound(Window, SoundOutput.SamplesPerSecond , SoundOutput.SecondaryBufferSize);
 			Win32ClearBuffer(&SoundOutput);
 			GlobalSecondaryBuffer->Play(0,0, DSBPLAY_LOOPING);
-			int16 *Samples =(int16 *)VirtualAlloc(0, SoundOutput.SecondaryBufferSize, MEM_COMMIT, PAGE_READWRITE);
+			int16 *Samples =(int16 *)VirtualAlloc(0, SoundOutput.SecondaryBufferSize,  MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+
+			game_memory GameMemory = {};
+			GameMemory.PermanentStorageSize = Megabytes(64);
+			GameMemory.PermanentStorage = VirtualAlloc(0, GameMemory.PermanentStorageSize,  MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+
+			if(Samples && GameMemory.PermanentStorage){
 
 			game_input Input [2] = {};
 			game_input *NewInput = &Input[0];
@@ -644,9 +650,10 @@ int CALLBACK WinMain(
 						bool Left = (Pad ->wButtons & XINPUT_GAMEPAD_DPAD_LEFT);
 						bool Right = (Pad ->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT);
 						
-						real32 X; if (Pad->sThumbLX < 0){X = (real32)Pad->sThumbLX / -32768.0f;} else {X = (real32)Pad->sThumbLX / 32767.0f;}
-						real32 Y; if (Pad->sThumbLY < 0){Y = (real32)Pad->sThumbLY / -32768.0f;} else {Y = (real32)Pad->sThumbLY / 32767.0f;}
+						real32 X; if (Pad->sThumbLX < 0){X = (real32)Pad->sThumbLX / 32768.0f;} else {X = (real32)Pad->sThumbLX / 32767.0f;}
+						real32 Y; if (Pad->sThumbLY < 0){Y = (real32)Pad->sThumbLY / 32768.0f;} else {Y = (real32)Pad->sThumbLY / 32767.0f;}
 						//todo min/max macros
+						NewController->Analog = true;
 						NewController->MinX = OldController->MaxX = NewController->EndX = X;
 						NewController->MinY = OldController->MaxY = NewController->EndY = Y;
 						
@@ -710,12 +717,14 @@ int CALLBACK WinMain(
 				SoundBuffer.SampleCount = BytesToWrite / SoundOutput.BytesPerSample;
 				SoundBuffer.Samples = Samples;
 
+				
+
 				game_offscreen_buffer Buffer = {};
 				Buffer.Memory = GlobalBackBuffer.Memory;
 				Buffer.Width = GlobalBackBuffer.Width;
 				Buffer.Height = GlobalBackBuffer.Height;
 				Buffer.Pitch = GlobalBackBuffer.Pitch;
-				GameUpdateAndRender(NewInput, &Buffer, &SoundBuffer);
+				GameUpdateAndRender(&GameMemory, NewInput, &Buffer, &SoundBuffer);
 				
 				//Buggy
 				//DirectSound output test
@@ -730,7 +739,7 @@ int CALLBACK WinMain(
 				//ReleaseDC(Window, DeviceContext);
 				//++XOffset;
 				//++YOffset;
-				
+
 				//Performance 
 				uint64 EndCycleCount = __rdtsc();
 
@@ -770,6 +779,10 @@ int CALLBACK WinMain(
 		}
 		else
 		{
+			//todo logging
+		}
+		} 
+		else{
 			//todo logging
 		}
   }

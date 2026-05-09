@@ -10,6 +10,9 @@
 #define ArrayCount(Array) (sizeof(Array)/sizeof((Array)[0]))
 //be careful with macros, put extra parenthesis if some inputs will mess with functionality
 //such as passing foo+bar next to [0] for bar[0]
+#define Kilobytes(Value) (Value * 1024)
+#define Megabytes(Value) (Value * 1024 * 1024)
+#define Gigabytes(Value) (Value * 1024 * 1024 * 1024)
 
 #define Pi32 3.14159265359f
 typedef uint8_t uint8;
@@ -82,6 +85,18 @@ struct game_controller_input{
 };
 struct game_input{
     game_controller_input Controllers[4];
+};
+
+struct game_state{
+    int XOffset;
+    int YOffset;
+    int ToneHz;
+};
+
+struct game_memory{
+    bool32 IsInitialized;
+    uint64 PermanentStorageSize;
+    void *PermanentStorage;
 };
 
 //services that the platform layer provides to the game below
