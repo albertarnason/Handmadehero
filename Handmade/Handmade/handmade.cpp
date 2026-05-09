@@ -58,8 +58,10 @@ internal void RenderWeirdGradient(game_offscreen_buffer *Buffer, int BlueOffset,
 }
 
 internal void GameUpdateAndRender (game_memory *Memory, game_input *Input, game_offscreen_buffer *Buffer,  game_sound_output_buffer *SoundBuffer){
+	Assert(sizeof(game_state) <= Memory->PermanentStorageSize); //game breaks right here in debugger if false
+	
 	game_state *GameState= (game_state *)Memory->PermanentStorage;
-	if(!Memory->IsInitialized){GameState->ToneHz = 256; GameState->XOffset = 0; GameState->YOffset = 0; Memory->IsInitialized = true;};
+	if(!Memory->IsInitialized){GameState->ToneHz = 256;Memory->IsInitialized = true;};
 	
 	game_controller_input *Input0 = &Input->Controllers[0];
 	if(Input0->Analog){GameState->ToneHz = 256+(int)(128.0f*(Input0->EndX));GameState->YOffset += (int)4.0f*(Input0->EndY);

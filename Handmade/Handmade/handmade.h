@@ -10,9 +10,29 @@
 #define ArrayCount(Array) (sizeof(Array)/sizeof((Array)[0]))
 //be careful with macros, put extra parenthesis if some inputs will mess with functionality
 //such as passing foo+bar next to [0] for bar[0]
-#define Kilobytes(Value) (Value * 1024)
-#define Megabytes(Value) (Value * 1024 * 1024)
-#define Gigabytes(Value) (Value * 1024 * 1024 * 1024)
+
+/*
+HANDMADE_INTERNAL:
+0 - build for public
+1 - build for dev
+
+HANDMADE_SLOW:
+0 - build for fast
+1 - build for slow
+*/
+
+
+#if HANDMADE_SLOW
+#define Assert(Expression) if(!(Expression)){*(int*)0 = 0;}
+#else
+#define Assert(Expression)
+#endif
+
+//should these all be 64bit?
+#define Kilobytes(Value) (Value * 1024LL)
+#define Megabytes(Value) (Value * 1024LL * 1024)
+#define Gigabytes(Value) (Value * 1024LL * 1024 * 1024)
+#define Terabytes(Value) (Value * 1024LL * 1024 * 1024 * 1024)
 
 #define Pi32 3.14159265359f
 typedef uint8_t uint8;
@@ -96,9 +116,14 @@ struct game_state{
 struct game_memory{
     bool32 IsInitialized;
     uint64 PermanentStorageSize;
-    void *PermanentStorage;
+    void *PermanentStorage; //REQUIRED to be cleared to 0
+    uint64 TransientStorageSize;
+    void *TransientStorage;  //REQUIRED to be cleared to 0
 };
 
+struct game_clocks{
+    real32 SecondsElapsed; //todo
+};
 //services that the platform layer provides to the game below
 
 
