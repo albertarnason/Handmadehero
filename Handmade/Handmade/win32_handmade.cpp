@@ -140,10 +140,12 @@ internal void Win32LoadXInpuT()
 	if(!XInputLibrary)
 	{
 		// todo logging
-	HMODULE XInputLibrary = LoadLibraryA("xinput1_3.dll");
+	//removed for compiler warning C4456
+	//HMODULE XInputLibrary = LoadLibraryA("xinput1_3.dll");
 	}
 	if(XInputLibrary)
 	{
+		//no idea why this is duplicated
 		XInputGetState = (x_input_get_state *)GetProcAddress(XInputLibrary, "XInputGetState");
 		if(!XInputGetState){XInputGetState = XInputGetStateStub;}
 		XInputSetState = (x_input_set_state *)GetProcAddress(XInputLibrary, "XInputSetState");
@@ -338,90 +340,7 @@ LRESULT CALLBACK Win32MainWindowCallback(
 			GlobalRunning = false;
 			OutputDebugStringA("WM_DESTROY\n");
 		} break;
-		case WM_SYSKEYDOWN:
-		case WM_SYSKEYUP:
-		case WM_KEYDOWN:
-		case WM_KEYUP:
-		{
-			//VKcode tells which key it is
-			//VKCode == 'W' = w key,
-			uint32 VKCode = WParam;
-			bool WasDown = ((LParam & (1 << 30)) != 0);
-			bool IsDown = ((LParam & (1 << 31)) == 0);
-			if(WasDown != IsDown)
-			{
-			if (VKCode == 'W')
-			{
-				OutputDebugStringA("W\n");
-			}
-			else if (VKCode == 'A')
-			{
-				OutputDebugStringA("A\n");
-			}
-			else if (VKCode == 'S')
-			{
-				OutputDebugStringA("S\n");
-			}
-			else if (VKCode == 'D')
-			{
-				OutputDebugStringA("D\n");
-			}
-			else if (VKCode == 'Q')
-			{
-				OutputDebugStringA("Q\n");
-			}	
-			else if (VKCode == 'E')
-			{
-				OutputDebugStringA("E\n");
-			}	
-			else if (VKCode == VK_UP)
-			{
-				OutputDebugStringA("up\n");
-			}
-			else if (VKCode == VK_LEFT)
-			{
-				OutputDebugStringA("left\n");
-			}
-			else if (VKCode == VK_DOWN)
-			{
-				OutputDebugStringA("down\n");
-			}
-			else if (VKCode == VK_RIGHT)
-			{
-				OutputDebugStringA("right\n");
-			}
-			else if (VKCode == VK_ESCAPE)
-			{
-
-				if(IsDown)
-				{
-				OutputDebugStringA("esc isdown\n");
-				}
-				if(WasDown)
-				{
-				OutputDebugStringA("esc wasdown\n");
-				}
-			}	
-			else if (VKCode == VK_RIGHT)
-			{
-				OutputDebugStringA("right\n");
-			}
-			else if (VKCode == VK_SPACE)
-			{
-				OutputDebugStringA("space\n");
-			}			
-			
-			
-			
-			//
-			}
-			bool32 AltKeyWasDown = (LParam & (1 << 29));
-			if((VKCode == VK_F4) && AltKeyWasDown)
-			{
-				GlobalRunning = false;
-			}
-
-		}break;
+		
 
 		case WM_CLOSE:
 		{
@@ -557,6 +476,13 @@ internal void Win32ProcessXInputDigitalButton(DWORD XInputButtonState, game_butt
 
 }
 
+internal void Win32ProcessKeyboardMessage(game_button_state *NewState, bool32 IsDown){
+	NewState->EndedDown = IsDown;
+	++NewState->HalfTransitionCount;
+
+}
+
+
 
 int CALLBACK WinMain(
 	HINSTANCE Instance,
@@ -605,10 +531,7 @@ int CALLBACK WinMain(
 		{
 			HDC DeviceContext = GetDC(Window);
 
-			//Graphics test
-			int XOffset = 0;
-			int YOffset = 0;
-			
+
 			win32_sound_output SoundOutput = {};
 
 			//Make this like 60 seconds (so playcursor cant wrap on us)
@@ -630,7 +553,7 @@ LPVOID BaseAdress = 0;
 
 			game_memory GameMemory = {};
 			GameMemory.PermanentStorageSize = Megabytes(64);
-			GameMemory.TransientStorageSize = Gigabytes((uint64)4);
+			GameMemory.TransientStorageSize = Gigabytes((uint64)1);
 
 			uint64 TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
 
@@ -655,6 +578,11 @@ LPVOID BaseAdress = 0;
 					//Large integer is a windows union struct consisting of lowpart highpart, u.lowpart u.highpart, and quadpart, 32bit 32bit u32bit u32bit and 64bit integer values
 					//struct(lowpart,highpart) is an anonymous struct/member can access by BeginCounter.u.LowPart
 					
+					//todo make zeroing macro
+					//todo we cant zero everything because the up/down state will be wrong!!!!
+					game_controller_input *KeyboardController = &NewInput->Controllers[0];
+					game_controller_input ZeroController = {};
+					*KeyboardController = ZeroController;
 					MSG Message;
 					//has to process the message queue from windows
 					while(PeekMessage(&Message, 0, 0, 0, PM_REMOVE))
@@ -664,8 +592,47 @@ LPVOID BaseAdress = 0;
 							GlobalRunning = false;
 						}
 
-						TranslateMessage(&Message);
-						DispatchMessageA(&Message);
+						switch (Message.message)
+						{
+							case WM_SYSKEYDOWN:
+							case WM_SYSKEYUP:
+							case WM_KEYDOWN:
+							case WM_KEYUP:
+							{
+
+								// VKCode tells which key it is
+								// VKCode == 'W' = w key
+								uint32 VKCode  = (uint32)Message.wParam;
+								bool WasDown   = ((Message.lParam & (1 << 30)) != 0);
+								bool IsDown    = ((Message.lParam & (1 << 31)) == 0);
+
+								if (WasDown != IsDown)
+								{
+									if      (VKCode == 'W')        { OutputDebugStringA("W\n");     }
+									else if (VKCode == 'A')        { OutputDebugStringA("A\n");     }
+									else if (VKCode == 'S')        { OutputDebugStringA("S\n");     }
+									else if (VKCode == 'D')        { OutputDebugStringA("D\n");     }
+									else if (VKCode == 'Q')        { Win32ProcessKeyboardMessage(&KeyboardController->LeftShoulder,  IsDown);}
+									else if (VKCode == 'E')        { Win32ProcessKeyboardMessage(&KeyboardController->RightShoulder, IsDown);}
+									else if (VKCode == VK_UP)      { Win32ProcessKeyboardMessage(&KeyboardController->Up, 			 IsDown);}
+									else if (VKCode == VK_DOWN)    { Win32ProcessKeyboardMessage(&KeyboardController->Down, 		 IsDown);}
+									else if (VKCode == VK_LEFT)    { Win32ProcessKeyboardMessage(&KeyboardController->Left, 	     IsDown);}
+									else if (VKCode == VK_RIGHT)   { Win32ProcessKeyboardMessage(&KeyboardController->Right, 	     IsDown);}
+									else if (VKCode == VK_SPACE)   { OutputDebugStringA("space\n"); }
+									else if (VKCode == VK_ESCAPE)  { GlobalRunning = false;			}
+								}
+								bool32 AltKeyWasDown = (Message.lParam & (1 << 29));
+								if ((VKCode == VK_F4) && AltKeyWasDown)
+								{
+									GlobalRunning = false;
+								}
+							} break;
+							default:
+							{
+							TranslateMessage(&Message);
+							DispatchMessageA(&Message);
+							}
+							}
 					}
 
 					//Input devices 3 ways: Interrupt, Polling, network based
@@ -673,7 +640,7 @@ LPVOID BaseAdress = 0;
 					//Interrupt based schemed: Device sends YOU(thecode) when state changes, cpu interrupts, legacy
 					//networked based
 					//should we poll this more frequency
-					int MaxControllerCount = XUSER_MAX_COUNT;
+					DWORD MaxControllerCount = XUSER_MAX_COUNT;
 					if(MaxControllerCount > ArrayCount(NewInput->Controllers)){MaxControllerCount = ArrayCount(NewInput->Controllers);}
 					for(DWORD ControllerIndex = 0;ControllerIndex <XUSER_MAX_COUNT; ++ControllerIndex)
 					{

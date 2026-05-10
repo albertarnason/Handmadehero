@@ -40,8 +40,8 @@ internal void RenderWeirdGradient(game_offscreen_buffer *Buffer, int BlueOffset,
 				Pixel in memory = BB GG RR xx
 			*/
 			//Blue
-			uint8 Blue = (X + BlueOffset);
-			uint8 Green= (Y + GreenOffset);
+			uint8 Blue = (uint8)(X + BlueOffset);
+			uint8 Green= (uint8)(Y + GreenOffset);
 			
 			// *Pixel = ;, writes value to left of = into Pixel by dereferencing with *
 			// *Pixel++, the ++ is post increment operator, so after expression add 1
@@ -76,7 +76,7 @@ internal void GameUpdateAndRender (game_memory *Memory, game_input *Input, game_
 		if(File.Contents)
 		{
 			//works
-			//DEBUGPlatformWriteEntireFile("C:/Users/walla/src/Handmadehero/Handmade/Handmade/Debug/test.out", File.ContentsSize, File.Contents);
+			DEBUGPlatformWriteEntireFile("C:/Users/walla/src/Handmadehero/Handmade/Handmade/Debug/test.out", File.ContentsSize, File.Contents);
 			DEBUGPlatformFreeFileMemory(File.Contents);
 		}
 
@@ -90,7 +90,9 @@ internal void GameUpdateAndRender (game_memory *Memory, game_input *Input, game_
 	};
 	
 	game_controller_input *Input0 = &Input->Controllers[0];
-	if(Input0->Analog){GameState->ToneHz = 256+(int)(128.0f*(Input0->EndX));GameState->YOffset += (int)4.0f*(Input0->EndY);
+	if(Input0->Analog){
+		GameState->YOffset += 	    (int)(	4.0f * Input0->EndY);
+		GameState->ToneHz 	= 256 + (int)(128.0f * Input0->EndX);
 	} else {
 		//digital movement
 	}
