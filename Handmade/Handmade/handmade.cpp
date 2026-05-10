@@ -1,5 +1,3 @@
-#include "handmade.h"
-
 internal void GameUpdateAndRender(game_offscreen_buffer *Buffer, game_sound_output_buffer *SoundBuffer);
 
 internal void GameOutputSound(game_sound_output_buffer *SoundBuffer, int ToneHz){
@@ -61,7 +59,35 @@ internal void GameUpdateAndRender (game_memory *Memory, game_input *Input, game_
 	Assert(sizeof(game_state) <= Memory->PermanentStorageSize); //game breaks right here in debugger if false
 	
 	game_state *GameState= (game_state *)Memory->PermanentStorage;
-	if(!Memory->IsInitialized){GameState->ToneHz = 256;Memory->IsInitialized = true;};
+	if(!Memory->IsInitialized){
+
+	
+		
+		//for debug purposes always reading whole files at once until multithreading
+		//roundtrip system for training wheels version
+		char *Filename = __FILE__;
+/*
+		uint64 FileSize = GetFileSize(FileName);
+		void *BitmapMemory = ReserveMemory(Memory, FileSize);
+		ReadEntireFileIntoMemory(FileName, BitmapMemory);
+*/
+
+		debug_read_file_result File = DEBUGPlatformReadEntireFile(Filename);
+		if(File.Contents)
+		{
+			//works
+			//DEBUGPlatformWriteEntireFile("C:/Users/walla/src/Handmadehero/Handmade/Handmade/Debug/test.out", File.ContentsSize, File.Contents);
+			DEBUGPlatformFreeFileMemory(File.Contents);
+		}
+
+		
+
+
+
+		GameState->ToneHz = 256;
+		Memory->IsInitialized = true;
+	
+	};
 	
 	game_controller_input *Input0 = &Input->Controllers[0];
 	if(Input0->Analog){GameState->ToneHz = 256+(int)(128.0f*(Input0->EndX));GameState->YOffset += (int)4.0f*(Input0->EndY);
@@ -76,4 +102,31 @@ internal void GameUpdateAndRender (game_memory *Memory, game_input *Input, game_
 	//Todo allow sample offsets here for more robust platform options
 	GameOutputSound(SoundBuffer, GameState->ToneHz);
     RenderWeirdGradient(Buffer, GameState->XOffset, GameState->YOffset);
+
+
+
+
+
 }
+
+
+	/*
+	Old file system style, "any read CAN fail, thus handling fails explicitly"
+	File handles very stateful, every thread would need their own file handle
+	Also very sequential code that depends on the slowest part of the machine, disk io, thus stalling entire game
+	Especially multiple reads in a row
+	"Nothing good about streaming based file io (for "our" purposes)"
+
+	char *Filename = "test.bmp";
+	file_handle *File = OpenFile(Filename);
+	uint8 Buffer[128];
+	if(Read(File, sizeof(Buffer), Buffer))
+		{use
+		uint8 Buffer2[128];
+			if(Read(File, sizeof(Buffer2), Buffer2))
+				{use} 
+			else 
+				{error}} 
+	else 
+		{error}
+	CloseFile(File);*/

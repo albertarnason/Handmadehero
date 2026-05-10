@@ -28,11 +28,14 @@ HANDMADE_SLOW:
 #define Assert(Expression)
 #endif
 
+
 //should these all be 64bit?
 #define Kilobytes(Value) (Value * 1024LL)
 #define Megabytes(Value) (Value * 1024LL * 1024)
 #define Gigabytes(Value) (Value * 1024LL * 1024 * 1024)
 #define Terabytes(Value) (Value * 1024LL * 1024 * 1024 * 1024)
+
+
 
 #define Pi32 3.14159265359f
 typedef uint8_t uint8;
@@ -49,9 +52,36 @@ typedef int32 bool32;
 
 typedef float real32;
 typedef double real64;
+
+inline uint32 SafeTruncateUInt64(uint64 Value){
+	//todo defines for max values UInt32Max
+	Assert(Value <= 0xFFFFFFFF);
+	uint32 Result = (uint32)Value;
+	return(Result);
+}
 //services that the game provides to the platform layer below
 
 // needs 4 things - user inputs, bitmap buffer to use, sound buffer to use, timing
+
+//services that the platform layer provides to the game below
+
+
+
+//NOT for shipping! Blocking and write doesnt protect against lost data!
+struct debug_read_file_result
+{   
+    uint32 ContentsSize;
+    void *Contents;
+};
+
+#if HANDMADE_INTERNAL
+//NOT for shipping! Blocking and write doesnt protect against lost data!
+internal debug_read_file_result DEBUGPlatformReadEntireFile(char *Filename);
+internal void DEBUGPlatformFreeFileMemory(void *Memory);
+internal bool32 DEBUGPlatformWriteEntireFile(char *Filename, uint32 MemorySize, void *Memory);
+#endif
+
+
 
 
 struct game_offscreen_buffer
@@ -104,6 +134,7 @@ struct game_controller_input{
     };
 };
 struct game_input{
+    //insert clock values here.
     game_controller_input Controllers[4];
 };
 
@@ -124,8 +155,6 @@ struct game_memory{
 struct game_clocks{
     real32 SecondsElapsed; //todo
 };
-//services that the platform layer provides to the game below
-
 
 #define HANDMADE_H
 #endif

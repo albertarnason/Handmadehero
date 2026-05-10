@@ -9,7 +9,11 @@
             "includePath": [
                 "${workspaceFolder}/**"
             ],
-            "intelliSenseMode": "windows-msvc-x64"
+            "intelliSenseMode": "windows-msvc-x64",
+            "defines": [
+                "HANDMADE_INTERNAL=1",
+                "HANDMADE_SLOW=1"
+            ]
         }
     ],
     "version": 4

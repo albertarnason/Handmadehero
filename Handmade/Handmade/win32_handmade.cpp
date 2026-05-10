@@ -101,6 +101,39 @@ global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub; //stati
 #define DIRECT_SOUND_CREATE(name)HRESULT WINAPI name(LPCGUID pcGuidDevice,LPDIRECTSOUND *ppDS,LPUNKNOWN pUnkOuter)
 typedef DIRECT_SOUND_CREATE(direct_sound_create);
 
+//only for debugging!
+//NOT for shipping! Blocking and write doesnt protect against lost data!
+internal debug_read_file_result DEBUGPlatformReadEntireFile(char *Filename){
+debug_read_file_result Result = {};
+HANDLE FileHandle = CreateFileA(Filename,GENERIC_READ,FILE_SHARE_READ,0,OPEN_EXISTING,0,0);
+if(FileHandle != INVALID_HANDLE_VALUE){LARGE_INTEGER FileSize;
+	if(GetFileSizeEx(FileHandle, &FileSize)){uint32 FileSize32 = SafeTruncateUInt64(FileSize.QuadPart);Result.Contents = VirtualAlloc(0,FileSize32, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+		if(Result.Contents){DWORD BytesRead;
+			if(ReadFile(FileHandle, Result.Contents, FileSize32, &BytesRead, 0) && (FileSize32 == BytesRead))
+				{/*succes*/ Result.ContentsSize = FileSize32;}
+			else{DEBUGPlatformFreeFileMemory(Result.Contents);Result.Contents = 0;}}
+		else{}}
+	else{}CloseHandle(FileHandle);}
+else{}
+return(Result);
+}
+
+internal bool32 DEBUGPlatformWriteEntireFile(char *Filename, uint32 MemorySize, void *Memory){
+bool32 Result = false;
+HANDLE FileHandle = CreateFileA(Filename,GENERIC_WRITE,0,0,CREATE_ALWAYS,0,0);
+if(FileHandle != INVALID_HANDLE_VALUE){DWORD BytesWritten;
+	if(WriteFile(FileHandle, Memory,MemorySize, &BytesWritten, 0))
+		{/*succes*/ Result =(BytesWritten == MemorySize);}
+	else{}CloseHandle(FileHandle);}
+else{}
+return(Result);
+}
+
+internal void DEBUGPlatformFreeFileMemory(void *Memory){
+if(Memory){
+	VirtualFree(Memory, 0, MEM_RELEASE);}
+}
+
 internal void Win32LoadXInpuT()
 {
 	HMODULE XInputLibrary = LoadLibraryA("xinput1_4.dll");
@@ -590,7 +623,7 @@ int CALLBACK WinMain(
 			int16 *Samples =(int16 *)VirtualAlloc(0, SoundOutput.SecondaryBufferSize,  MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
 
 #if HANDMADE_INTERNAL 
-LPVOID BaseAdress = Terabytes((uint64)2); //error is simply wrong
+LPVOID BaseAdress = (LPVOID)Terabytes((uint64)2); //error is simply wrong
 #else
 LPVOID BaseAdress = 0;
 #endif
@@ -817,3 +850,80 @@ LPVOID BaseAdress = 0;
 //Caseys header style is completely butchered for me at episode 13, might be include order
 //might be intellisense stuff, might be casey build stuff, might be just dumb
 //tldr every header related change atm seems more tedious and annoying than just having it declared toplayer, despite good reasons probably existing for using headers
+//rename all variables to snake case things_name_stuff
+
+/*
+mat4 projection;
+mat4 view;
+mat4 model;
+
+vec4 pos;
+
+vec4 proj = projection * view * model * pos;
+
+mat4 projection_from_view;
+mat4 view_from_world;
+mat4 world_from_model;
+
+vec4 model_position;
+
+Vec4 model_projection = projection_from_view * view_from_world * world_from_model * model_position;
+
+graphics programming naming convetion to make code functionality clearer
+"Domino naming convention"
+transformation direction
+typed coordinate spaces
+important because the names show the correct ordering
+For any code where coordinate spaces mix (graphics, robotics, physics, AR/VR), it's arguably the clearest naming system that exists.
+
+
+Brutal asserting, always crash on assert fail (with log dump)
+(dont assert on user input stuff)
+Assert asserts invariance
+assert thing HAS TO BE thing for program to continue
+
+Dreams engine (currentstate = laststate * input)
+checking Bit determinism by running two in parallel and checking they're equal
+gives "on the fly testing of determinism every frame"
+
+GAME ENGINE DETERMINISM!!
+
+Combo of 1 brutal asserting and 2 determinism checking every frame makes (most) bugs consistent (deterministic) AND makes non-determinism itself a bug, so it's forcefully removed 
+
+determinism is functional immutable stateless adjacent
+
+code tradeoffs with this approach
+- parallelism problematic (deterministic parallelism?)
+- annoying and complicated code
+- cultural resistance
+
+
+For every byte read, you can do approximately 5 instructions
+
+so load 8 bytes, can do 40 instructions before the next one
+
+Not true numbers, but probably true in order of magnitude
+
+rsync algorithm  a utility for transferring and synchronizing files between a computer and a storage drive and across networked computers by comparing the modification times and sizes of files
+gzip rsyncable to do it with zip files that normally are not compatible with rsync
+
+for syncing between two computers/nodes where u believe a high percentage of the content on each computer to already be equal
+deduplication process
+
+uniformly slow program
+
+Reason for performance mindset shift
+
+classic gamer mindset is faster = better make it as fast as possible
+
+Alternatively developer mindset:
+
+Make things as fast as possible, so u can spend a ton of performance solving hard problems with simple code
+
+Seeing performance as 1 a budget and a constraint, 2 a resource to be utilised (except for battery life!)
+
+avoid state management and creation of state as much as possible
+be aware of state reachability, can this state become invalid state
+
+Minimize state surface area. Every piece of state that can be derived from other state should be. Derived state is not state — it is a function
+*/
