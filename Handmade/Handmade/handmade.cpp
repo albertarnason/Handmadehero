@@ -88,19 +88,28 @@ internal void GameUpdateAndRender (game_memory *Memory, game_input *Input, game_
 		Memory->IsInitialized = true;
 	
 	};
-	
-	game_controller_input *Input0 = &Input->Controllers[0];
-	if(Input0->Analog){
-		GameState->YOffset += 	    (int)(	4.0f * Input0->EndY);
-		GameState->ToneHz 	= 256 + (int)(128.0f * Input0->EndX);
-	} else {
-		//digital movement
-	}
 
-	if(Input0->Down.EndedDown){
-		GameState->XOffset += 1;
-	}
+	//For loop for multiple controller inputs hmm
+	for(int ControllerIndex = 0; ControllerIndex <ArrayCount(Input->Controllers); ++ControllerIndex){
+		game_controller_input *Controller = GetController(Input, ControllerIndex);
+		if(Controller->Analog){
+			GameState->YOffset += 	    (int)(	4.0f * Controller->StickAverageX);
+			GameState->ToneHz 	= 256 + (int)(128.0f * Controller->StickAverageY);
+		} 
+		else {
+			//Keyboard movement
+			if(Controller->ActionLeft .EndedDown){GameState->XOffset -= 1;}
+			if(Controller->ActionRight.EndedDown){GameState->XOffset += 1;}
+			if(Controller->ActionUp   .EndedDown){GameState->YOffset -= 1;}
+			if(Controller->ActionDown .EndedDown){GameState->YOffset += 1;}
+			
+			if(Controller->MoveLeft   .EndedDown){GameState->XOffset -= 1;}
+			if(Controller->MoveRight  .EndedDown){GameState->XOffset += 1;}
+			if(Controller->MoveUp     .EndedDown){GameState->YOffset -= 1;}
+			if(Controller->MoveDown   .EndedDown){GameState->YOffset += 1;}
+		}
 
+	}
 	//Todo allow sample offsets here for more robust platform options
 	GameOutputSound(SoundBuffer, GameState->ToneHz);
     RenderWeirdGradient(Buffer, GameState->XOffset, GameState->YOffset);
