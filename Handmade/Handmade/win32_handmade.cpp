@@ -502,8 +502,8 @@ Makes it possible to change codebase without maintaining "knowledge of state" wh
 
 internal real32 Win32ProcessXInputStickValue(SHORT Value, SHORT DeadZoneThreshold){
 	real32 Result = 0;
-	if 		 	(Value < -DeadZoneThreshold){Result = (real32)Value / 32768.0f;} 
-		else if (Value > DeadZoneThreshold){Result = (real32)Value / 32768.0f;}
+	if 		 	(Value < -DeadZoneThreshold){Result = (real32)(Value + DeadZoneThreshold) / (32768.0f - DeadZoneThreshold);} 
+		else if (Value > DeadZoneThreshold) {Result = (real32)(Value - DeadZoneThreshold) / (32768.0f - DeadZoneThreshold);}
 	
 	return Result;
 }
@@ -659,8 +659,7 @@ LPVOID BaseAdress = 0;
 					//todo we cant zero everything because the up/down state will be wrong!!!!
 					game_controller_input *OldKeyboardController = GetController(OldInput, 0);
 					game_controller_input *NewKeyboardController = GetController(NewInput, 0);
-					game_controller_input ZeroController = {};
-					*NewKeyboardController = ZeroController;
+					*NewKeyboardController = {};
 					NewKeyboardController->IsConnected = true;
 					for(int ButtonIndex = 0; ButtonIndex < ArrayCount(NewKeyboardController->Buttons); ++ButtonIndex){
 						NewKeyboardController->Buttons[ButtonIndex].EndedDown = OldKeyboardController->Buttons[ButtonIndex].EndedDown;
@@ -689,32 +688,33 @@ LPVOID BaseAdress = 0;
 							// See if ControllerState.dwPacketNumber increments too rapidly
 							XINPUT_GAMEPAD *Pad = &ControllerState.Gamepad;
 
-							NewController->Analog = true;
 							NewController->StickAverageX = Win32ProcessXInputStickValue(Pad->sThumbLX, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
 							NewController->StickAverageY = Win32ProcessXInputStickValue(Pad->sThumbLY, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
+
+							if ((NewController->StickAverageX != 0.0f)||(NewController->StickAverageY != 0.0f)){NewController->Analog = true;}
 							
-							if (Pad ->wButtons & XINPUT_GAMEPAD_DPAD_UP)	{NewController->StickAverageY = -1.0f;};
-							if (Pad ->wButtons & XINPUT_GAMEPAD_DPAD_DOWN)	{NewController->StickAverageY =  1.0f;};
-							if (Pad ->wButtons & XINPUT_GAMEPAD_DPAD_LEFT)	{NewController->StickAverageY = -1.0f;};
-							if (Pad ->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT)	{NewController->StickAverageY =  1.0f;};
+							if (Pad ->wButtons & XINPUT_GAMEPAD_DPAD_UP)	{NewController->StickAverageY = -1.0f; NewController->Analog = false;};
+							if (Pad ->wButtons & XINPUT_GAMEPAD_DPAD_DOWN)	{NewController->StickAverageY =  1.0f; NewController->Analog = false;};
+							if (Pad ->wButtons & XINPUT_GAMEPAD_DPAD_LEFT)	{NewController->StickAverageY = -1.0f; NewController->Analog = false;};
+							if (Pad ->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT)	{NewController->StickAverageY =  1.0f; NewController->Analog = false;};
 							
 							real32 Threshold = 0.5f;
-							//unsure with parameter ordering and all being set to Moveleft
+							//unsure with parameter ordering
 							Win32ProcessXInputDigitalButton((NewController->StickAverageX < -Threshold) ? 1 : 0, &OldController->MoveLeft, &NewController->MoveLeft, 1);
-							Win32ProcessXInputDigitalButton((NewController->StickAverageX >  Threshold) ? 1 : 0, &OldController->MoveLeft, &NewController->MoveLeft, 1);
-							Win32ProcessXInputDigitalButton((NewController->StickAverageY < -Threshold) ? 1 : 0, &OldController->MoveLeft, &NewController->MoveLeft, 1);
-							Win32ProcessXInputDigitalButton((NewController->StickAverageY <  Threshold) ? 1 : 0, &OldController->MoveLeft, &NewController->MoveLeft, 1);
+							Win32ProcessXInputDigitalButton((NewController->StickAverageX >  Threshold) ? 1 : 0, &OldController->MoveRight,&NewController->MoveRight,1);
+							Win32ProcessXInputDigitalButton((NewController->StickAverageY < -Threshold) ? 1 : 0, &OldController->MoveDown, &NewController->MoveDown, 1);
+							Win32ProcessXInputDigitalButton((NewController->StickAverageY <  Threshold) ? 1 : 0, &OldController->MoveUp,   &NewController->MoveUp,   1);
 
-							Win32ProcessXInputDigitalButton(Pad ->wButtons, &OldController->ActionDown,  &NewController->ActionDown, 	XINPUT_GAMEPAD_A);
-							Win32ProcessXInputDigitalButton(Pad ->wButtons, &OldController->ActionRight, &NewController->ActionRight, 	XINPUT_GAMEPAD_B);
-							Win32ProcessXInputDigitalButton(Pad ->wButtons, &OldController->ActionLeft,  &NewController->ActionLeft, 	XINPUT_GAMEPAD_X);
-							Win32ProcessXInputDigitalButton(Pad ->wButtons, &OldController->ActionUp,    &NewController->ActionUp, 		XINPUT_GAMEPAD_Y);
+							Win32ProcessXInputDigitalButton(Pad ->wButtons, &OldController->ActionDown,    &NewController->ActionDown, 	 XINPUT_GAMEPAD_A);
+							Win32ProcessXInputDigitalButton(Pad ->wButtons, &OldController->ActionRight,   &NewController->ActionRight,  XINPUT_GAMEPAD_B);
+							Win32ProcessXInputDigitalButton(Pad ->wButtons, &OldController->ActionLeft,    &NewController->ActionLeft, 	 XINPUT_GAMEPAD_X);
+							Win32ProcessXInputDigitalButton(Pad ->wButtons, &OldController->ActionUp,      &NewController->ActionUp, 	 XINPUT_GAMEPAD_Y);
 
-							Win32ProcessXInputDigitalButton(Pad ->wButtons, &OldController->LeftShoulder,  &NewController->LeftShoulder,  XINPUT_GAMEPAD_LEFT_SHOULDER );
-							Win32ProcessXInputDigitalButton(Pad ->wButtons, &OldController->RightShoulder, &NewController->RightShoulder, XINPUT_GAMEPAD_RIGHT_SHOULDER);
+							Win32ProcessXInputDigitalButton(Pad ->wButtons, &OldController->LeftShoulder,  &NewController->LeftShoulder, XINPUT_GAMEPAD_LEFT_SHOULDER );
+							Win32ProcessXInputDigitalButton(Pad ->wButtons, &OldController->RightShoulder, &NewController->RightShoulder,XINPUT_GAMEPAD_RIGHT_SHOULDER);
 
-							Win32ProcessXInputDigitalButton(Pad ->wButtons, &OldController->Start, &NewController->Start, XINPUT_GAMEPAD_START);
-							Win32ProcessXInputDigitalButton(Pad ->wButtons, &OldController->Back,  &NewController->Back,  XINPUT_GAMEPAD_BACK );
+							Win32ProcessXInputDigitalButton(Pad ->wButtons, &OldController->Start, 		   &NewController->Start, 		 XINPUT_GAMEPAD_START);
+							Win32ProcessXInputDigitalButton(Pad ->wButtons, &OldController->Back,          &NewController->Back,  		 XINPUT_GAMEPAD_BACK );
 							
 						}
 						else

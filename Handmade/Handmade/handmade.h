@@ -111,7 +111,7 @@ struct game_controller_input{
     
     union
     {
-        game_button_state Buttons[10];
+        game_button_state Buttons[12];
         struct
          {
             game_button_state MoveUp;
@@ -129,6 +129,12 @@ struct game_controller_input{
 
             game_button_state Start;
             game_button_state Back;
+
+            game_button_state Error;
+
+
+            //weird button for assertions to check if Buttons[] is equal to count of game_button_states, for workaround due to anonymous struct
+            game_button_state Terminator;
         };
     };
 };
@@ -136,7 +142,7 @@ struct game_input{
     //insert clock values here.
     game_controller_input Controllers[5];
 };
-inline game_controller_input *GetController(game_input *Input, int ControllerIndex){
+inline game_controller_input *GetController(game_input *Input, int unsigned ControllerIndex){
     Assert(ControllerIndex < ArrayCount(Input->Controllers));
     game_controller_input *Result = &Input->Controllers[ControllerIndex];
     return(Result);

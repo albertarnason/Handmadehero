@@ -56,7 +56,11 @@ internal void RenderWeirdGradient(game_offscreen_buffer *Buffer, int BlueOffset,
 }
 
 internal void GameUpdateAndRender (game_memory *Memory, game_input *Input, game_offscreen_buffer *Buffer,  game_sound_output_buffer *SoundBuffer){
-	Assert(sizeof(game_state) <= Memory->PermanentStorageSize); //game breaks right here in debugger if false
+	
+	//pointer arithmetic to make sure game_button_sate Buttons[] == game_button_state
+	Assert((&Input->Controllers[0].Terminator - &Input->Controllers[0].Buttons[0]) == (ArrayCount(Input->Controllers[0].Buttons)));
+	//game breaks right here in debugger if false
+	Assert(sizeof(game_state) <= Memory->PermanentStorageSize); 
 	
 	game_state *GameState= (game_state *)Memory->PermanentStorage;
 	if(!Memory->IsInitialized){
