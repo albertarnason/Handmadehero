@@ -64,6 +64,8 @@ struct win32_sound_output
 global_variable bool GlobalRunning;
 global_variable win32_offscreen_buffer GlobalBackBuffer;
 global_variable LPDIRECTSOUNDBUFFER GlobalSecondaryBuffer;
+global_variable int64 GlobalPerfCountFrequency;
+
 
 //VirtualProtect great for free Catching use-after-free, Buffer overruns, accidental writes to read-only memory
 
@@ -561,6 +563,18 @@ while(PeekMessage(&Message, 0, 0, 0, PM_REMOVE))
 }
 
 
+inline LARGE_INTEGER Win32GetWallClock(void){
+	LARGE_INTEGER result;
+	QueryPerformanceCounter(&result);
+	return result;
+}
+
+inline real32 Win32GetSecondsElapsed(LARGE_INTEGER start, LARGE_INTEGER end){
+	real32 result = ((real32)end.QuadPart - start.QuadPart) / (real32)GlobalPerfCountFrequency;
+	return result;
+}
+
+
 int CALLBACK WinMain(
 	HINSTANCE Instance,
 	HINSTANCE PrevInstance,
@@ -571,10 +585,13 @@ int CALLBACK WinMain(
 	
 	LARGE_INTEGER PerfCountFrequencyResult;
 	QueryPerformanceFrequency(&PerfCountFrequencyResult);
-	int64 PerfCountFrequency = PerfCountFrequencyResult.QuadPart;
+	GlobalPerfCountFrequency = PerfCountFrequencyResult.QuadPart;
 
-
-
+	//Set the windows scheduler granularity to 1ms
+	//so that our sleep() can be more granular
+	UINT desired_scheduler_ms = 1;
+	bool32 sleep_is_granular =(timeBeginPeriod(desired_scheduler_ms) == TIMERR_NOERROR);
+	
 	Win32LoadXInpuT();
 
 	WNDCLASSA WindowClass = {};
@@ -587,6 +604,14 @@ int CALLBACK WinMain(
 	WindowClass.hInstance = Instance;
  	// WindowClass.hIcon;
 	WindowClass.lpszClassName = "HandmadeHeroWindowClass";
+
+	//todo how to query this on windows
+	//hz = cycles per sec == frames per second
+	int monitor_refresh_hz = 60;
+	int game_update_hz = monitor_refresh_hz / 2;
+	real32 target_seconds_elapsed_per_frame = 1.0f / (real32)game_update_hz;
+
+	
 	
   	//idk if its registerclassA or W
   	if(RegisterClassA(&WindowClass))
@@ -644,8 +669,7 @@ LPVOID BaseAdress = 0;
 				game_input *NewInput = &Input[0];
 				game_input *OldInput = &Input[1];
 
-				LARGE_INTEGER LastCounter;
-				QueryPerformanceCounter(&LastCounter);
+				LARGE_INTEGER LastCounter =  Win32GetWallClock();
 				uint64 LastCycleCount = __rdtsc();
 
 				//pool with bitmap virtualalloc
@@ -752,6 +776,7 @@ LPVOID BaseAdress = 0;
 						SoundIsValid = true;
 					}
 
+					//sound is wrong because it doesnt go with new frame loop
 					game_sound_output_buffer SoundBuffer = {};
 					SoundBuffer.SamplesPerSecond = SoundOutput.SamplesPerSecond;
 					SoundBuffer.SampleCount = BytesToWrite / SoundOutput.BytesPerSample;
@@ -769,28 +794,41 @@ LPVOID BaseAdress = 0;
 					//Buggy
 					//DirectSound output test
 					if(SoundIsValid){
-						
 						Win32FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &SoundBuffer);
 					}
 
+					//Performance  and framelocking
+					
+					
+					LARGE_INTEGER WorkCounter = Win32GetWallClock();
+					real32 work_seconds_elapsed = Win32GetSecondsElapsed(LastCounter, WorkCounter);
+					
+					real32 seconds_elapsed_for_frame = work_seconds_elapsed;
+					
+					//cpu melting solution to cap frames at 60fps
+					if (seconds_elapsed_for_frame < target_seconds_elapsed_per_frame){
+						if(sleep_is_granular){
+							DWORD sleep_ms = (DWORD)(1000.0f * (target_seconds_elapsed_per_frame - seconds_elapsed_for_frame));
+							if (sleep_ms > 0){
+								Sleep(sleep_ms);
+							}
+						}
+						while(seconds_elapsed_for_frame < target_seconds_elapsed_per_frame){
+							seconds_elapsed_for_frame = Win32GetSecondsElapsed(LastCounter,Win32GetWallClock());
+						}
+					}
+					else{
+						//MISSED FRAMERATE CHECK HERE
+						//logging!
+					}
+					
+					//displaying frame
 					win32_window_dimension Dimension = Win32GetWindowDimension(Window);
 					Win32DisplayBufferInWindow(&GlobalBackBuffer,DeviceContext, Dimension.Width, Dimension.Height);
-					//deleted in casey code
-					//ReleaseDC(Window, DeviceContext);
-					//++XOffset;
-					//++YOffset;
+#if 0
+	
+#endif
 
-					//Performance 
-					uint64 EndCycleCount = __rdtsc();
-
-					LARGE_INTEGER EndCounter;
-					QueryPerformanceCounter(&EndCounter);
-
-					uint64 CyclesElapsed = EndCycleCount - LastCycleCount;
-					int64 CounterElapsed = EndCounter.QuadPart - LastCounter.QuadPart;
-					real64 MSPerFrame = (((1000.0f*(real64)CounterElapsed) / (real64)PerfCountFrequency));
-					real64 FPS = (real64)PerfCountFrequency / (real64)CounterElapsed;
-					real64 MCPF = (real64)(CyclesElapsed / (1000.0f *1000.0f));
 					//percountfreq/counterelapsed is better than 1000/MSPerFrame as it gives more accurate values than MSPerFrame since MSPerFrame rounds/truncates decimal values
 					
 					//todo average of FPS so far
@@ -801,20 +839,32 @@ LPVOID BaseAdress = 0;
 					//only fine for debug code
 					//trying to convert values to 32 int values before printout
 
-					//char Buffer[256];
-					//milliseconds per frame, frames per second, (mega)cycles per frame
-					//todo: make own printf
-					//sprintf always takes 64bit floats
-					//sprintf(Buffer, "%.02fmspf, %.02ffps, %.02fmcpf\n", MSPerFrame, FPS, MCPF);
-					//OutputDebugStringA(Buffer);
-
-					LastCounter = EndCounter;
-					LastCycleCount = EndCycleCount;
-
 					game_input *Temp = NewInput;
 					NewInput = OldInput;
 					OldInput = Temp;
 					//todo should i clear these
+					
+		
+					LARGE_INTEGER EndCounter = Win32GetWallClock();
+					real64 MSPerFrame = 1000.0f * Win32GetSecondsElapsed(LastCounter, EndCounter);
+					LastCounter = EndCounter;
+				
+					uint64 EndCycleCount = __rdtsc();
+					uint64 CyclesElapsed = EndCycleCount - LastCycleCount;
+					LastCycleCount = EndCycleCount;
+
+					
+					real64 FPS = 0.0f;
+					real64 MCPF = (real64)(CyclesElapsed / (1000.0f *1000.0f));
+
+					char FPSBuffer[256];
+					//milliseconds per frame, frames per second, (mega)cycles per frame
+					//todo: make own printf
+					//sprintf always takes 64bit floats
+					_snprintf_s(FPSBuffer, sizeof(FPSBuffer), "%.02fmspf, %.02ffps, %.02fmcpf\n", MSPerFrame, FPS, MCPF);
+
+					OutputDebugStringA(FPSBuffer);
+
 				}
 			}
 			else
@@ -921,4 +971,14 @@ avoid state management and creation of state as much as possible
 be aware of state reachability, can this state become invalid state
 
 Minimize state surface area. Every piece of state that can be derived from other state should be. Derived state is not state — it is a function
+
+3 types of approaches to rewriting software
+
+1, Never do it, it is hard costly and problematic, waterfally, upfront, backwards compatability, legacy codebase
+2, Rewrite from scratch and avoid the previous bad decisions
+3, Ship of Theseus rewriting, capable of changing the parts out, on a deep level, while the ship is sailing, complicated high skill level, very rare
+
+
+
+
 */

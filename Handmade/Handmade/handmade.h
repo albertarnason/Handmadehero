@@ -130,11 +130,11 @@ struct game_controller_input{
             game_button_state Start;
             game_button_state Back;
 
+            //weird button for assertions to check if Buttons[] is equal to count of game_button_states, for workaround due to anonymous struct
             game_button_state Error;
 
 
-            //weird button for assertions to check if Buttons[] is equal to count of game_button_states, for workaround due to anonymous struct
-            game_button_state Terminator;
+            
         };
     };
 };
