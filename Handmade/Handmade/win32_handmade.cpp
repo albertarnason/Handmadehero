@@ -37,12 +37,12 @@
 
 struct win32_offscreen_buffer
 {
-BITMAPINFO Info;
-void *Memory;
-int Width;
-int Height;
-int Pitch;
-int BytesPerPixel;
+	BITMAPINFO Info;
+	void *Memory;
+	int Width;
+	int Height;
+	int Pitch;
+	int BytesPerPixel;
 };
 
 struct win32_window_dimension 
@@ -53,12 +53,14 @@ struct win32_window_dimension
 
 struct win32_sound_output
 {
-			int SamplesPerSecond;
-			uint32 RunningSampleIndex;
-			int BytesPerSample;
-			DWORD SecondaryBufferSize;
-			real32 tSine;
-			int LatencySampleCount;
+	int SamplesPerSecond;
+	uint32 RunningSampleIndex;
+	int BytesPerSample;
+	DWORD SecondaryBufferSize;
+	real32 tSine;
+	int LatencySampleCount;
+	//todo math gets simpler if we add "BytesPerSecond"
+	//should runningsampleindex be in bytes aswell?
 };
 
 struct win32_debug_time_marker 
@@ -523,52 +525,50 @@ internal void Win32ProcessPendingMessages(game_controller_input *KeyboardControl
 
 MSG Message;
 //has to process the message queue from windows
-while(PeekMessage(&Message, 0, 0, 0, PM_REMOVE))
-{
-	
-	switch (Message.message)
+	while(PeekMessage(&Message, 0, 0, 0, PM_REMOVE))
 	{
-		case WM_QUIT: {GlobalRunning = false;} break;
-		case WM_SYSKEYDOWN:
-		case WM_SYSKEYUP:
-		case WM_KEYDOWN:
-		case WM_KEYUP:
+		switch (Message.message)
 		{
-			// VKCode tells which key it is
-			// VKCode == 'W' = w key
-			uint32 VKCode  = (uint32)Message.wParam;
-			bool WasDown   = ((Message.lParam & (1 << 30)) != 0);
-			bool IsDown    = ((Message.lParam & (1 << 31)) == 0);
+			case WM_QUIT: {GlobalRunning = false;} break;
+			case WM_SYSKEYDOWN:
+			case WM_SYSKEYUP:
+			case WM_KEYDOWN:
+			case WM_KEYUP:
+			{
+				// VKCode tells which key it is
+				// VKCode == 'W' = w key
+				uint32 VKCode  = (uint32)Message.wParam;
+				bool WasDown   = ((Message.lParam & (1 << 30)) != 0);
+				bool IsDown    = ((Message.lParam & (1 << 31)) == 0);
 
-			if (WasDown != IsDown)
+				if (WasDown != IsDown)
+				{
+					if      (VKCode == 'W')        { Win32ProcessKeyboardMessage(&KeyboardController->MoveUp, 			 IsDown);}
+					else if (VKCode == 'A')        { Win32ProcessKeyboardMessage(&KeyboardController->MoveLeft, 		 IsDown);}
+					else if (VKCode == 'S')        { Win32ProcessKeyboardMessage(&KeyboardController->MoveDown, 		 IsDown);}
+					else if (VKCode == 'D')        { Win32ProcessKeyboardMessage(&KeyboardController->MoveRight, 		 IsDown);}
+					else if (VKCode == 'Q')        { Win32ProcessKeyboardMessage(&KeyboardController->LeftShoulder, 	 IsDown);}
+					else if (VKCode == 'E')        { Win32ProcessKeyboardMessage(&KeyboardController->RightShoulder,	 IsDown);}
+					else if (VKCode == VK_UP)      { Win32ProcessKeyboardMessage(&KeyboardController->ActionUp, 		 IsDown);}
+					else if (VKCode == VK_DOWN)    { Win32ProcessKeyboardMessage(&KeyboardController->ActionDown, 		 IsDown);}
+					else if (VKCode == VK_LEFT)    { Win32ProcessKeyboardMessage(&KeyboardController->ActionLeft, 	     IsDown);}
+					else if (VKCode == VK_RIGHT)   { Win32ProcessKeyboardMessage(&KeyboardController->ActionRight, 	     IsDown);}
+					else if (VKCode == VK_SPACE)   { Win32ProcessKeyboardMessage(&KeyboardController->Back, 	     	 IsDown);}
+					else if (VKCode == VK_ESCAPE)  { Win32ProcessKeyboardMessage(&KeyboardController->Start, 	    	 IsDown);}
+				}
+				bool32 AltKeyWasDown = (Message.lParam & (1 << 29));
+				if ((VKCode == VK_F4) && AltKeyWasDown)
+				{
+					GlobalRunning = false;
+				}
+			} break;
+			default:
 			{
-				if      (VKCode == 'W')        { Win32ProcessKeyboardMessage(&KeyboardController->MoveUp, 			 IsDown);}
-				else if (VKCode == 'A')        { Win32ProcessKeyboardMessage(&KeyboardController->MoveLeft, 		 IsDown);}
-				else if (VKCode == 'S')        { Win32ProcessKeyboardMessage(&KeyboardController->MoveDown, 		 IsDown);}
-				else if (VKCode == 'D')        { Win32ProcessKeyboardMessage(&KeyboardController->MoveRight, 		 IsDown);}
-				else if (VKCode == 'Q')        { Win32ProcessKeyboardMessage(&KeyboardController->LeftShoulder, 	 IsDown);}
-				else if (VKCode == 'E')        { Win32ProcessKeyboardMessage(&KeyboardController->RightShoulder,	 IsDown);}
-				else if (VKCode == VK_UP)      { Win32ProcessKeyboardMessage(&KeyboardController->ActionUp, 		 IsDown);}
-				else if (VKCode == VK_DOWN)    { Win32ProcessKeyboardMessage(&KeyboardController->ActionDown, 		 IsDown);}
-				else if (VKCode == VK_LEFT)    { Win32ProcessKeyboardMessage(&KeyboardController->ActionLeft, 	     IsDown);}
-				else if (VKCode == VK_RIGHT)   { Win32ProcessKeyboardMessage(&KeyboardController->ActionRight, 	     IsDown);}
-				else if (VKCode == VK_SPACE)   { Win32ProcessKeyboardMessage(&KeyboardController->Back, 	     	 IsDown);}
-				else if (VKCode == VK_ESCAPE)  { Win32ProcessKeyboardMessage(&KeyboardController->Start, 	    	 IsDown);}
-			}
-			bool32 AltKeyWasDown = (Message.lParam & (1 << 29));
-			if ((VKCode == VK_F4) && AltKeyWasDown)
-			{
-				GlobalRunning = false;
-			}
-		} break;
-		default:
-		{
-		TranslateMessage(&Message);
-		DispatchMessageA(&Message);
-		} break;
+			TranslateMessage(&Message);
+			DispatchMessageA(&Message);
+			} break;
+		}
 	}
-}
-
 }
 
 
@@ -614,11 +614,7 @@ internal void Win32DebugSyncDisplay(win32_offscreen_buffer *BackBuffer, int mark
 
 		Win32DrawSoundBufferMarker (BackBuffer, SoundOutput, C, pad_x, top, bottom, this_marker->PlayCursor,  0xFFFFFFFF);
 		Win32DrawSoundBufferMarker (BackBuffer, SoundOutput, C, pad_x, top, bottom, this_marker->WriteCursor,  0xFFFF0000);
-	
-
 	}
-	
-	
 	
 	return;
 }
@@ -629,9 +625,7 @@ int CALLBACK WinMain(
 	HINSTANCE Instance,
 	HINSTANCE PrevInstance,
 	LPSTR     CommandLine,
-	int       ShowCode)
-{
-
+	int       ShowCode){
 	
 	LARGE_INTEGER PerfCountFrequencyResult;
 	QueryPerformanceFrequency(&PerfCountFrequencyResult);
@@ -640,7 +634,7 @@ int CALLBACK WinMain(
 	//Set the windows scheduler granularity to 1ms
 	//so that our sleep() can be more granular
 	UINT desired_scheduler_ms = 1;
-	bool32 sleep_is_granular =(timeBeginPeriod(desired_scheduler_ms) == TIMERR_NOERROR);
+	bool32 sleep_is_granular  = (timeBeginPeriod(desired_scheduler_ms) == TIMERR_NOERROR);
 	
 	Win32LoadXInpuT();
 
@@ -657,14 +651,12 @@ int CALLBACK WinMain(
 
 	//todo how to query this on windows
 	//hz = cycles per sec == frames per second
-#define frames_of_audio_latency 3
+
 #define monitor_refresh_hz 60
 #define game_update_hz (monitor_refresh_hz / 2)
 	real32 target_seconds_per_frame = 1.0f / (real32)game_update_hz;
 
-	
-	
-  	//idk if its registerclassA or W
+
   	if(RegisterClassA(&WindowClass))
   	{
 		HWND Window = CreateWindowExA(
@@ -689,7 +681,8 @@ int CALLBACK WinMain(
 			SoundOutput.SamplesPerSecond = 48000;
 			SoundOutput.BytesPerSample = sizeof(int16)*2;
 			SoundOutput.SecondaryBufferSize = SoundOutput.SamplesPerSecond*SoundOutput.BytesPerSample;
-			SoundOutput.LatencySampleCount = frames_of_audio_latency * (SoundOutput.SamplesPerSecond / game_update_hz);
+			//todo get rid of latency sample count
+			SoundOutput.LatencySampleCount = 3*(SoundOutput.SamplesPerSecond / game_update_hz);
 			Win32InitDSound(Window, SoundOutput.SamplesPerSecond , SoundOutput.SecondaryBufferSize);
 			Win32ClearBuffer(&SoundOutput);
 			GlobalSecondaryBuffer->Play(0,0, DSBPLAY_LOOPING);
@@ -718,7 +711,7 @@ LPVOID BaseAdress = 0;
 
 			game_memory GameMemory = {};
 			GameMemory.PermanentStorageSize = Megabytes(64);
-			GameMemory.TransientStorageSize = Gigabytes((uint64)1);
+			GameMemory.TransientStorageSize = Gigabytes((uint64)4);
 
 			uint64 TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
 
@@ -737,8 +730,11 @@ LPVOID BaseAdress = 0;
 				int debug_time_marker_index = 0;
 				win32_debug_time_marker debug_time_markers[game_update_hz / 2] = {0};
 				
-				DWORD last_play_cursor = 0;
-				bool32 SoundIsValid = false;
+				DWORD  last_play_cursor      = 0;
+				DWORD  last_write_cursor     = 0;
+				DWORD  audio_latency_bytes   = 0;
+				real32 audio_latency_seconds = 0;
+				bool32 SoundIsValid          = false;
 				
 				uint64 LastCycleCount = __rdtsc();
 				
@@ -820,12 +816,27 @@ LPVOID BaseAdress = 0;
 						//Vibration.wRightMotorSpeed = 60000;
 						//XInputSetState(0, &Vibration);
 					}
+					/*
+						Here is how sound output computation works
+
+						We define a safety value that is the number of samples we think our game update loop may vary by. (lets say up to 2 ms)
+
+						When we wake up to write audio, we will look and see what the playcursor position in and we will forecast ahead where we think the play cursor will be on the next frame boundary
+
+						we will then look to see if the write cursor is before that by atleast our safety value. If it is, the target fill position is that frame boundary plus one frame. This gives us perfect audio sync in the case of a (sound)card that has low enough latency
+
+						If the write cursor is _after_ that safety margin, then we assume we can never sync the audio perfectly, so we will write one frame's worth of audio plus the safety margin worth of guard samples (1ms or something determined safe, whatever we think the variability of our frame computation is)
+
+
+					*/
 					//compute how much sound to write and where
 					DWORD ByteToLock = 0;
 					DWORD BytesToWrite = 0;
 					DWORD TargetCursor = 0;
 					if(SoundIsValid)
 					{ ByteToLock = (SoundOutput.RunningSampleIndex*SoundOutput.BytesPerSample) % SoundOutput.SecondaryBufferSize;
+
+
 						TargetCursor = ((last_play_cursor + SoundOutput.LatencySampleCount*SoundOutput.BytesPerSample) % SoundOutput.SecondaryBufferSize);
 						
 						// change this to using a lower latency offset from the playcursor
@@ -850,27 +861,36 @@ LPVOID BaseAdress = 0;
 					//sound is wrong because it doesnt go with new frame loop
 					game_sound_output_buffer SoundBuffer = {};
 					SoundBuffer.SamplesPerSecond = SoundOutput.SamplesPerSecond;
-					SoundBuffer.SampleCount = BytesToWrite / SoundOutput.BytesPerSample;
-					SoundBuffer.Samples = Samples;
+					SoundBuffer.SampleCount      = BytesToWrite / SoundOutput.BytesPerSample;
+					SoundBuffer.Samples          = Samples;
 
 					
 
 					game_offscreen_buffer Buffer = {};
 					Buffer.Memory = GlobalBackBuffer.Memory;
-					Buffer.Width = GlobalBackBuffer.Width;
+					Buffer.Width  = GlobalBackBuffer.Width;
 					Buffer.Height = GlobalBackBuffer.Height;
-					Buffer.Pitch = GlobalBackBuffer.Pitch;
+					Buffer.Pitch  = GlobalBackBuffer.Pitch;
 					GameUpdateAndRender(&GameMemory, NewInput, &Buffer, &SoundBuffer);
 					
 					//Buggy
 					//DirectSound output test
 					if(SoundIsValid){
 #if HANDMADE_INTERNAL
+						//casey just uses DWORD PlayCursor here aswell
 						DWORD DebugPlayCursor;
 						DWORD DebugWriteCursor;
 						GlobalSecondaryBuffer->GetCurrentPosition(&DebugPlayCursor, &DebugWriteCursor);
+						DWORD unwrapped_write_cursor = DebugWriteCursor;
+						if(unwrapped_write_cursor < DebugPlayCursor){
+							unwrapped_write_cursor += SoundOutput.SecondaryBufferSize;
+						}
+						audio_latency_bytes = unwrapped_write_cursor - DebugPlayCursor;
+						audio_latency_seconds = (((real32)audio_latency_bytes / (real32)SoundOutput.BytesPerSample) / (real32)SoundOutput.SamplesPerSecond);
+						
+						
 						char sound_text_buffer2[256];
-						_snprintf_s(sound_text_buffer2, sizeof(sound_text_buffer2), "LPC: %u BTL: %u TC:%u BTW: %u PC: %u WC:%u\n", last_play_cursor, ByteToLock, TargetCursor, BytesToWrite, DebugPlayCursor, DebugWriteCursor);
+						_snprintf_s(sound_text_buffer2, sizeof(sound_text_buffer2), "LPC: %u BTL: %u TC:%u BTW: %u PC: %u WC:%u DELTA: %u (%fs)\n", last_play_cursor, ByteToLock, TargetCursor, BytesToWrite, DebugPlayCursor, DebugWriteCursor, audio_latency_bytes, audio_latency_seconds);
 						OutputDebugStringA(sound_text_buffer2);
 #endif
 						Win32FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &SoundBuffer);
@@ -881,9 +901,6 @@ LPVOID BaseAdress = 0;
 					
 					LARGE_INTEGER WorkCounter = Win32GetWallClock();
 					real32 work_seconds_elapsed = Win32GetSecondsElapsed(LastCounter, WorkCounter);
-					
-					//crashes if fps is capped to anyting but 60fps
-					//Assert(work_seconds_elapsed < target_seconds_per_frame); // CHEATING CLAUDE ASSERT
 					real32 seconds_elapsed_for_frame = work_seconds_elapsed;
 					
 					//cpu melting solution to cap frames at 60fps
@@ -896,7 +913,9 @@ LPVOID BaseAdress = 0;
 						}
 
 						real32 test_seconds_elapsed_for_frame = Win32GetSecondsElapsed(LastCounter, Win32GetWallClock());
-						// Assert(test_seconds_elapsed_for_frame < target_seconds_per_frame); // assert always crashes since it is testing after sleep
+						if(test_seconds_elapsed_for_frame < target_seconds_per_frame){
+							//TODO Log miss here
+						}
 						//testing to see if we're within 33mspf budget, but we hit 34.41mspf, consistently
 						while(seconds_elapsed_for_frame < target_seconds_per_frame){
 							seconds_elapsed_for_frame = Win32GetSecondsElapsed(LastCounter,Win32GetWallClock());
@@ -921,7 +940,8 @@ LPVOID BaseAdress = 0;
 					DWORD PlayCursor;
 					DWORD WriteCursor;
 					if(GlobalSecondaryBuffer->GetCurrentPosition(&PlayCursor, &WriteCursor) == DS_OK){
-						last_play_cursor = PlayCursor;
+						last_write_cursor = WriteCursor;
+						last_play_cursor  = PlayCursor;
 						if(!SoundIsValid){
 							SoundOutput.RunningSampleIndex = WriteCursor / SoundOutput.BytesPerSample;
 							SoundIsValid = true;
@@ -933,10 +953,10 @@ LPVOID BaseAdress = 0;
 #if HANDMADE_INTERNAL
 					//debug code to find out where DirectSound think it is
 					{
-						
+						Assert(debug_time_marker_index < ArrayCount(debug_time_markers))
 						win32_debug_time_marker *Marker = &debug_time_markers[debug_time_marker_index++];
 						
-						if (debug_time_marker_index >= ArrayCount(debug_time_markers)){
+						if (debug_time_marker_index == ArrayCount(debug_time_markers)){
 							debug_time_marker_index = 0;
 						}
 						Marker->PlayCursor = PlayCursor;
